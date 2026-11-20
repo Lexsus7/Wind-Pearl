@@ -43,18 +43,6 @@ The keybind can be changed in Minecraft's Controls settings under **Wind Pearl**
 - Multiplayer servers may have restrictions affecting projectile behavior.
 - WindPearl does not guarantee a successful interception every time.
 
-## Building from Source
-
-Clone the repository and switch to the branch matching your Minecraft version.
-
-For Windows:
-
-```powershell
-.\gradlew.bat build
-```
-
-The compiled mod will be located in `build/libs/`.
-
 ## License
 
 **Copyright © 2026 Lexsus7. All Rights Reserved.**
