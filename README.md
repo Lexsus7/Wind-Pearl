@@ -70,4 +70,5 @@ See [LICENSE](LICENSE) for details.
 Developed by **Lexsus7**.
 
 GitHub: https://github.com/Lexsus7
+
 *Note: README.md and LICENSE generated with AI*
