@@ -22,6 +22,7 @@ When the Wind Charge hits the Ender Pearl, the collision can teleport the player
 |---|---|---|
 | 26.2 | Fabric | [26.2-fabric](https://github.com/Lexsus7/Wind-Pearl/tree/26.2-fabric) |
 | 1.21.11 | Fabric | [1.21.11-fabric](https://github.com/Lexsus7/Wind-Pearl/tree/1.21.11-fabric) |
+| 26.3 | Fabric | [26.2-fabric](https://github.com/Lexsus7/Wind-Pearl/tree/26.3-fabric) |
 
 ## How to Use
 
@@ -69,3 +70,4 @@ See [LICENSE](LICENSE) for details.
 Developed by **Lexsus7**.
 
 GitHub: https://github.com/Lexsus7
+*Note: README.md and LICENSE generated with AI*
