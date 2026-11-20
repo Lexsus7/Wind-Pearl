@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "windpearl",
+	"version": "${version}",
+	"name": "Wind Pearl",
+	"icon": "assets/windpearl/icon.png",
+	"description": "Trhow wind burst and ender pearl at same time by keybind",
+	"authors": [
+		"Lezzez"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.Lezzez.WindPearlMod"
+		],
+		"client": [
+			"com.Lezzez.client.WindPearlClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
