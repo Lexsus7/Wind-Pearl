@@ -20,8 +20,8 @@ When the Wind Charge hits the Ender Pearl, the collision can teleport the player
 
 | Minecraft | Mod Loader | Source Code |
 |---|---|---|
-| 26.2 | Fabric | [26.2-fabric](https://github.com/Lexsus7/WindPearl/tree/26.2-fabric) |
-| 1.21.11 | Fabric | [1.21.11-fabric](https://github.com/Lexsus7/WindPearl/tree/1.21.11-fabric) |
+| 26.2 | Fabric | [26.2-fabric](https://github.com/Lexsus7/Wind-Pearl/tree/26.2-fabric) |
+| 1.21.11 | Fabric | [1.21.11-fabric](https://github.com/Lexsus7/Wind-Pearl/tree/1.21.11-fabric) |
 
 ## How to Use
 
