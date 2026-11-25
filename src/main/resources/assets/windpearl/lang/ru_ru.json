@@ -1,0 +1,7 @@
+{
+  "windpearl.config.general": "Основные",
+  "windpearl.config.key": "Клавиша броска (например G, F6, LEFT_SHIFT)",
+  "windpearl.config.analysis": "Использовать физику PearlWind_chargeAnalysis",
+  "windpearl.config.manual": "Автобросок при выборе заряда ветра",
+  "windpearl.config.invalid_key": "Неизвестная клавиша"
+}

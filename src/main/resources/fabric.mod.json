@@ -1,28 +1,35 @@
-
 {
-	"schemaVersion": 1,
-	"id": "windpearl",
-	"version": "${version}",
-	"name": "WindPearl",
-	"description": "Automatically throws a wind charge to intercept an ender pearl mid-flight.",
-	"authors": [
-		"Lezzez"
-	],
-	"contact": {
-		"sources": "https://github.com/Lexsus7/Wind-Pearl"
-	},
-	"license": "ARR",
-	"icon": "assets/windpearl-26.3/icon.png",
-	"environment": "client",
-	"entrypoints": {
-		"client": [
-			"com.Lezzez.client.WindPearlClient"
-		]
-	},
-	"depends": {
-		"fabricloader": ">=0.20.1",
-		"minecraft": "~26.3",
-		"java": ">=25",
-		"fabric-api": "*"
-	}
+  "schemaVersion": 1,
+  "id": "windpearl",
+  "version": "${version}",
+  "name": "WindPearl",
+  "description": "Automatically throws a wind charge to intercept an ender pearl mid-flight.",
+  "authors": [
+    "Lezzez"
+  ],
+  "contact": {
+    "sources": "https://github.com/Lexsus7/Wind-Pearl"
+  },
+  "license": "ARR",
+  "icon": "assets/windpearl-26.3/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.Lezzez.client.WindPearlClient"
+    ],
+    "modmenu": [
+      "com.Lezzez.client.config.WindPearlModMenu"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*",
+    "modmenu": "*",
+    "cloth-config": "*"
+  },
+  "recommends": {
+    "pearlwind_chargeanalysis": "*"
+  }
 }
