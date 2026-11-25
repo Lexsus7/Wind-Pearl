@@ -1,12 +1,8 @@
 
 package com.Lezzez.client;
-import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
 import net.minecraft.world.item.Items;
@@ -14,38 +10,81 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
+import java.util.HashSet;
+import java.util.UUID;
+import com.Lezzez.client.config.WindPearlConfig;
+import com.Lezzez.client.physics.InterceptSolver;
+import com.Lezzez.client.tracking.PlayerMotion;
 public class WindPearlClient implements ClientModInitializer {
 
-    private static KeyMapping activateKey;
+    private com.Lezzez.client.compat.AnalysisIntegration analysis;
+    private boolean keyHeld, chargeHeld, manualShot;
+    private Object lastWorld, lastPlayer;
+    private final HashSet<UUID> fired = new HashSet<>();
+    private final HashSet<UUID> active = new HashSet<>();
     private static ThrownEnderpearl trackedPearl;
     private static boolean waitingForPearl;
     private static boolean autoShotPending;
     private static int searchTicks;
     private static int trackingTicks;
+    private static final int OBSERVATION_TICKS = 6;
+    private Vec3 previousPearlPosition;
+    private boolean verticalShot;
+    private int motionSamples;
     private static int shotCooldownTicks;
     private static int autoWindSlot = -1;
-    private static final double SINGLEPLAYER_DELAY = 3.0;
-    private static final double MULTIPLAYER_DELAY = 5.0;
+    private static final double BASE_DELAY = 1.0;
+    private final HashSet<UUID> oldPearls = new HashSet<>();
 
-    private static final KeyMapping.Category WIND_PEARL_CATEGORY =
-            KeyMapping.Category.register(
-                    Identifier.fromNamespaceAndPath("windpearl", "controls")
-            );
     @Override
     public void onInitializeClient() {
-        activateKey = KeyMappingHelper.registerKeyMapping(
-                new KeyMapping("key.windpearl.activate",
-                        InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, WIND_PEARL_CATEGORY)
-        );
+        WindPearlConfig.load();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (analysis == null) analysis = new com.Lezzez.client.compat.AnalysisIntegration();
+            PlayerMotion.tick(client);
+            if (lastWorld != client.level || lastPlayer != client.player) {
+                lastWorld = client.level; lastPlayer = client.player;
+                fired.clear(); trackedPearl = null; waitingForPearl = false; autoShotPending = false;
+                keyHeld = chargeHeld = false; shotCooldownTicks = 0;
+            }
+            if (client.player == null || client.level == null || client.gameMode == null) return;
+            long window = GLFW.glfwGetCurrentContext();
+            boolean gameplay = window != 0 && GLFW.glfwGetInputMode(window, GLFW.GLFW_CURSOR) == GLFW.GLFW_CURSOR_DISABLED;
+            boolean down = window != 0 && GLFW.glfwGetKey(window, WindPearlConfig.keyCode(WindPearlConfig.INSTANCE.key)) == GLFW.GLFW_PRESS;
+            boolean selected = client.player.getMainHandItem().is(Items.WIND_CHARGE);
+            boolean press = down && !keyHeld;
+            boolean select = selected && !chargeHeld;
+            keyHeld = down; chargeHeld = selected;
+            if (!gameplay) { autoShotPending = false; waitingForPearl = false; trackedPearl = null; return; }
             if (shotCooldownTicks > 0) shotCooldownTicks--;
-            while (activateKey.consumeClick()) {checkInventory(client);}
+            active.clear();
+            for (var entity : client.level.entitiesForRendering()) if (entity instanceof ThrownEnderpearl) active.add(entity.getUUID());
+            fired.retainAll(active);
+            if (press) checkInventory(client);
+            if (select && WindPearlConfig.INSTANCE.manualAutoThrow && !autoShotPending && !waitingForPearl && shotCooldownTicks == 0) beginManual(client);
+            if (manualShot && autoShotPending && (!selected || !WindPearlConfig.INSTANCE.manualAutoThrow)) {
+                trackedPearl = null; autoShotPending = false;
+            }
             trackPearl(client);
         });
     }
+    private void beginManual(Minecraft client) {
+        ThrownEnderpearl newest = null;
+        for (var entity : client.level.entitiesForRendering()) {
+            if (entity instanceof ThrownEnderpearl pearl && pearl.getOwner() == client.player
+                && !pearl.isRemoved() && !fired.contains(pearl.getUUID()) && pearl.tickCount <= 100
+                && (newest == null || pearl.tickCount < newest.tickCount)) newest = pearl;
+        }
+        if (newest == null) return;
+        trackedPearl = newest; waitingForPearl = false; autoShotPending = true; manualShot = true;
+        autoWindSlot = client.player.getInventory().getSelectedSlot();
+        trackingTicks = 0; motionSamples = 0; previousPearlPosition = null;
+        Vec3 v = newest.getDeltaMovement();
+        verticalShot = Math.hypot(v.x, v.z) < 0.03 && Math.hypot(client.player.getKnownMovement().x, client.player.getKnownMovement().z) <= 0.001;
+    }
     private void checkInventory(Minecraft client) {
         if (client.player == null || client.level == null) return;
-        if (autoShotPending) return;
+        if (autoShotPending || waitingForPearl || shotCooldownTicks > 0 || client.gameMode == null) return;
 
         int pearlSlot = -1;
         int windSlot = -1;
@@ -58,9 +97,14 @@ public class WindPearlClient implements ClientModInitializer {
             if (stack.is(Items.WIND_CHARGE)) windSlot = slot;
         }
         if (pearlSlot == -1 || windSlot == -1) return;
+        manualShot = false;
         autoWindSlot = windSlot;
         autoShotPending = true;
         shotCooldownTicks = 0;
+        oldPearls.clear();
+        for (var e : client.level.entitiesForRendering()) if (e instanceof ThrownEnderpearl) oldPearls.add(e.getUUID());
+        verticalShot = Math.abs(client.player.getXRot()) >= 89.999f
+                && Math.hypot(client.player.getKnownMovement().x, client.player.getKnownMovement().z) <= 0.001;
         throwPearl(client, pearlSlot);
     }
     private void throwPearl(Minecraft client, int pearlSlot) {
@@ -82,6 +126,8 @@ public class WindPearlClient implements ClientModInitializer {
         waitingForPearl = true;
         searchTicks = 0;
         trackingTicks = 0;
+        previousPearlPosition = null;
+        motionSamples = 0;
     }
     private void trackPearl(Minecraft client) {
         if (client.player == null || client.level == null) {
@@ -96,7 +142,7 @@ public class WindPearlClient implements ClientModInitializer {
             List<ThrownEnderpearl> pearls = client.level.getEntitiesOfClass(
                     ThrownEnderpearl.class,
                     searchArea,
-                    pearl -> pearl.getOwner() == client.player
+                    pearl -> pearl.getOwner() == client.player && !oldPearls.contains(pearl.getUUID())
             );
             if (!pearls.isEmpty()) {
                 trackedPearl = pearls.getFirst();
@@ -116,28 +162,52 @@ public class WindPearlClient implements ClientModInitializer {
 
         trackingTicks++;
 
-        if (trackingTicks < 2 || trackingTicks > 20) return;
+        if (trackingTicks > 20) { trackedPearl = null; autoShotPending = false; return; }
+        Vec3 current = trackedPearl.position();
+        if (previousPearlPosition != null) {
+            Vec3 step = current.subtract(previousPearlPosition);
+            if (step.length() > 0.01 && step.length() < 5.0) {
+                motionSamples++;
+            } else {
+                motionSamples = 0;
+            }
+        }
+        previousPearlPosition = current;
+        if (verticalShot && Math.hypot(client.player.getKnownMovement().x, client.player.getKnownMovement().z) > 0.001) verticalShot = false;
         if (!autoShotPending || shotCooldownTicks != 0) return;
+        if (fired.contains(trackedPearl.getUUID())) { autoShotPending = false; trackedPearl = null; return; }
+        if (verticalShot ? trackingTicks < 2 : (trackingTicks < OBSERVATION_TICKS || motionSamples < 3)) return;
+        if (trackingTicks >= 2) {
+            double[] angles = analysis.angles(client, trackedPearl.getUUID());
+            if (angles != null) { fireWindCharge(client, (float) angles[0], (float) angles[1]); return; }
+        }
 
-        Vec3 windStart = client.player.getEyePosition();
+        Vec3 windStart = new Vec3(client.player.getX(), client.player.getEyeY(), client.player.getZ());
         Vec3 position = trackedPearl.position();
         Vec3 velocity = trackedPearl.getDeltaMovement();
 
-        double delay = client.hasSingleplayerServer()
-                ? SINGLEPLAYER_DELAY
-                : MULTIPLAYER_DELAY;
+        Vec3 playerVelocity = PlayerMotion.inherited(client, velocity);
 
-        TrajectoryCalculator.InterceptResult result =
-                TrajectoryCalculator.calculateIntercept(
-                        windStart, position, velocity, 1, 30, delay
+        double delay = BASE_DELAY;
+        if (!client.hasSingleplayerServer()) {
+            var connection = client.getConnection();
+            if (connection != null) {
+                var info = connection.getPlayerInfo(client.player.getUUID());
+                if (info != null) delay += Math.max(0, info.getLatency()) / 50.0;
+            }
+        }
+
+        InterceptSolver.Result result =
+                InterceptSolver.solve(
+                        windStart, position, velocity, playerVelocity, delay, verticalShot, client
                 );
         if (result != null) {
-            fireWindCharge(client, result);
+            fireWindCharge(client, result.yaw(), result.pitch());
         }
     }
     private void fireWindCharge(
             Minecraft client,
-            TrajectoryCalculator.InterceptResult result
+            float yaw, float pitch
     ) {
         if (client.player == null || client.gameMode == null) {
             autoShotPending = false;
@@ -160,11 +230,12 @@ public class WindPearlClient implements ClientModInitializer {
         int beforeSlot = inventory.getSelectedSlot();
 
         try {
-            client.player.setYRot(result.yaw());
-            client.player.setXRot(result.pitch());
+            client.player.setYRot(yaw);
+            client.player.setXRot(pitch);
 
             inventory.setSelectedSlot(autoWindSlot);
             client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+            if (trackedPearl != null) fired.add(trackedPearl.getUUID());
         } finally {
             inventory.setSelectedSlot(beforeSlot);
             client.player.setYRot(beforeYaw);
@@ -172,6 +243,7 @@ public class WindPearlClient implements ClientModInitializer {
 
             autoShotPending = false;
             shotCooldownTicks = 1;
+            trackedPearl = null;
         }
     }
 }

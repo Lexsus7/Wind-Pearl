@@ -1,4 +1,7 @@
 {
-  "key.category.windpearl.controls": "Wind Pearl",
-  "key.windpearl.activate": "Throw Enderpearl and Wind charge"
+  "windpearl.config.general": "General",
+  "windpearl.config.key": "Throw key (e.g. G, F6, LEFT_SHIFT)",
+  "windpearl.config.analysis": "Use PearlWind_chargeAnalysis physics",
+  "windpearl.config.manual": "Auto throw when selecting wind charge",
+  "windpearl.config.invalid_key": "Unknown keyboard key"
 }
